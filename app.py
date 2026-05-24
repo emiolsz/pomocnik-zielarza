@@ -6,7 +6,7 @@ import requests
 from ziola import BAZA_ZIOL
 from drzewa import BAZA_DRZEW
 from grzyby import BAZA_GRZYBOW
-from slownik import MAPOWANIE_AI  # Pobieranie słownika z wgranego pliku
+from slownik import MAPOWANIE_AI
 
 # Adres darmowego modelu klasyfikacji przyrody w chmurze Hugging Face
 API_URL = "https://huggingface.co"
@@ -57,16 +57,16 @@ if zdjecie_plik is not None:
             
         rozpoznany_gatunek = None
         
-        # Przetwarzanie i dopasowywanie odpowiedzi z modelu AI
+        # --- TUTAJ JEST TA POPRAWKA ---
         if wyniki_ai and isinstance(wyniki_ai, list) and len(wyniki_ai) > 0:
-            # Pobieramy pierwszy, najbardziej prawdopodobny wynik
+            # Pobieramy pierwszy element z listy wyników
             najlepszy_wynik = wyniki_ai[0]
             etykieta_ai = najlepszy_wynik['label'].lower()
             
-            # Czyszczenie tekstu (wyciągamy główne słowo przed przecinkiem)
+            # Prawidłowe oczyszczenie tekstu i wyciągnięcie głównego słowa przed przecinkiem
             glowna_etykieta = etykieta_ai.split(',')[0].strip()
             
-            # Wyszukiwanie polskiej nazwy w zaimportowanym z słownika pliku
+            # Wyszukiwanie polskiej nazwy w zaimportowanym słowniku
             if glowna_etykieta in MAPOWANIE_AI:
                 rozpoznany_gatunek = MAPOWANIE_AI[glowna_etykieta]
             else:
