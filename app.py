@@ -9,14 +9,14 @@ from grzyby import BAZA_GRZYBOW
 
 # 2. Konfiguracja strony internetowej
 cls_st.set_page_config(
-    page_title="Wielki Atlas Natury - Zioła, Drzewa, Grzyby",
-    page_icon="🌲",
+    page_title="Pomocnik zielarza",
+    page_icon="🌿",
     layout="centered"
 )
 
 # Nagłówek aplikacji
-cls_st.title("🌲 Wielki Atlas Natury")
-cls_st.subheader("Rozpoznawaj skarby lasu i łąki za pomocą AI")
+cls_st.title("🌿 Pomocnik zielarza")
+cls_st.subheader("Naukowa baza wiedzy o ziołach, drzewach i grzybach")
 
 # 3. Wybór sposobu dodania zdjęcia przez użytkownika
 opcja = cls_st.radio(
