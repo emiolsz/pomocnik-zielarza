@@ -1,24 +1,30 @@
 import streamlit as cls_st
-import time
 from PIL import Image
+from transformers import pipeline
 
-# 1. Importowanie baz danych z Twoich osobnych plików .py
+# 1. Importowanie naukowych baz danych
 from ziola import BAZA_ZIOL
 from drzewa import BAZA_DRZEW
 from grzyby import BAZA_GRZYBOW
+from slownik import MAPOWANIE_AI
 
-# 2. Konfiguracja strony internetowej
+# 2. Konfiguracja strony
 cls_st.set_page_config(
     page_title="Pomocnik zielarza",
     page_icon="🌿",
-    layout="centered"
+    layout="wide"  # Zmieniamy na 'wide', aby grafika i tekst ładnie zmieściły się obok siebie
 )
 
-# Nagłówek aplikacji
+@cls_st.cache_resource
+def zaladuj_model_ai():
+    return pipeline("image-classification", model="microsoft/resnet-50")
+
+detektor_ai = zaladuj_model_ai()
+
+# 3. Interfejs aplikacji
 cls_st.title("🌿 Pomocnik zielarza")
 cls_st.subheader("Naukowa baza wiedzy o ziołach, drzewach i grzybach")
 
-# 3. Wybór sposobu dodania zdjęcia przez użytkownika
 opcja = cls_st.radio(
     "Wybierz sposób dodania zdjęcia:",
     ("Wgraj plik z urządzenia", "Zrób zdjęcie aparatem")
@@ -30,57 +36,64 @@ if opcja == "Wgraj plik z urządzenia":
 else:
     zdjecie_plik = cls_st.camera_input("Skieruj aparat na obiekt")
 
-# 4. Przetwarzanie i wyszukiwanie w bazach danych
 if zdjecie_plik is not None:
-    # Wyświetlenie zdjęcia użytkownika
-    obraz = Image.open(zdjedzie_plik if 'zdjedzie_plik' in locals() else zdjecie_plik)
+    obraz = Image.open(zdjecie_plik)
     cls_st.image(obraz, caption="Twoje zdjęcie", use_container_width=True)
     
-    # --- TYMCZASOWE POLE DO TESTOWANIA BAZY ---
-    # Ponieważ model AI dodamy na końcu, to pole pozwala Ci wpisać nazwę ręcznie,
-    # aby sprawdzić, czy aplikacja prawidłowo czyta pliki ziola.py, drzewa.py i grzyby.py
-    testowa_nazwa = cls_st.text_input(
-        "Wpisz nazwę do przetestowania (np. Rumianek pospolity, Brzoza brodawkowata, Borowik szlachetny):",
-        value="Rumianek pospolity"
-    )
-    
-    if cls_st.button("Uruchom analizę i przeszukaj atlasy", type="primary"):
-        with cls_st.spinner("Skanowanie struktury i przeszukiwanie baz danych..."):
-            time.sleep(1.5)
+    if cls_st.button("Uruchom analizę AI i przeszukaj atlasy", type="primary"):
+        with cls_st.spinner("Oko AI analizuje kształty i kolory surowca..."):
+            wyniki_ai = detektor_ai(obraz)
+            etykieta_ai = wyniki_ai[0]['label'].lower()
+            glowna_etykieta = etykieta_ai.split(',')[0].strip()
             
-        # Zmienna, do której zapiszemy znalezione informacje
-        dane_obiektu = None
-        kategoria = ""
-        
-        # Przeszukiwanie baz danych – sprawdzamy każdy plik po kolei
-        if testowa_nazwa in BAZA_ZIOL:
-            dane_obiektu = BAZA_ZIOL[testowa_nazwa]
-            kategoria = "🌿 Kategoria: Zioła lecznicze"
-        elif testowa_nazwa in BAZA_DRZEW:
-            dane_obiektu = BAZA_DRZEW[testowa_nazwa]
-            kategoria = "🌳 Kategoria: Drzewa i kora"
-        elif testowa_nazwa in BAZA_GRZYBOW:
-            dane_obiektu = BAZA_GRZYBOW[testowa_nazwa]
-            kategoria = "🍄 Kategoria: Grzyby"
-
-        # 5. Wyświetlanie wyników użytkownikowi
-        if dane_obiektu:
-            cls_st.success("🤖 Znaleziono dopasowanie w Atlasie!")
-            cls_st.info(kategoria)
-            
-            # Główne dane: Nazwa polska i łacińska
-            cls_st.markdown(f"## {testowa_nazwa}")
-            cls_st.markdown(f"*Nazwa łacińska:* ***{dane_obiektu['lacina']}***")
-            
-            # Tworzenie czytelnych zakładek na opisy i przepisy
-            zakladka1, zakladka2 = cls_st.tabs(["📋 Pozyskiwanie i zbiór", "🧪 Przepis / Zastosowanie"])
-            
-            with zakladka1:
-                cls_st.write(dane_obiektu["pozyskiwanie"])
-                
-            with zakladka2:
-                cls_st.write(dane_obiektu["przepis"])
+        rozpoznany_gatunek = None
+        if glowna_etykieta in MAPOWANIE_AI:
+            rozpoznany_gatunek = MAPOWANIE_AI[glowna_etykieta]
         else:
-            cls_st.error(f"❌ Nie znaleziono gatunku '{testowa_nazwa}' w żadnym z plików (ziola.py, drzewa.py, grzyby.py). Sprawdź pisownię!")
+            for klucz, wartosc in MAPOWANIE_AI.items():
+                if klucz in etykieta_ai:
+                    rozpoznany_gatunek = wartosc
+                    break
 
+        # 4. Wyświetlanie naukowej wiedzy botanicznej wraz z kartą
+        if rozpoznany_gatunek:
+            dane_obiektu = None
+            kategoria = ""
+            
+            if rozpoznany_gatunek in BAZA_ZIOL:
+                dane_obiektu = BAZA_ZIOL[rozpoznany_gatunek]
+                kategoria = "🌿 Kategoria: Zioła lecznicze"
+            elif rozpoznany_gatunek in BAZA_DRZEW:
+                dane_obiektu = BAZA_DRZEW[rozpoznany_gatunek]
+                kategoria = "🌳 Kategoria: Drzewa i kora"
+            elif rozpoznany_gatunek in BAZA_GRZYBOW:
+                dane_obiektu = BAZA_GRZYBOW[rozpoznany_gatunek]
+                kategoria = "🍄 Kategoria: Grzyby"
 
+            if dane_obiektu:
+                cls_st.success("🎯 Oko AI zidentyfikowało obiekt!")
+                cls_st.info(kategoria)
+                cls_st.markdown(f"## {rozpoznany_gatunek}")
+                cls_st.markdown(f"*Nazwa łacińska:* ***{dane_obiektu['lacina']}***")
+                
+                # --- PODZIAŁ NA KOLUMNY ---
+                # kol1 (lewa) na teksty naukowe, kol2 (prawa) na Twoją kartę botaniczną
+                kol1, kol2 = cls_st.columns([1, 1])
+                
+                with kol1:
+                    zakladka1, zakladka2 = cls_st.tabs(["📋 Pozyskiwanie i zbiór", "🧪 Przepis / Zastosowanie"])
+                    with zakladka1:
+                        cls_st.write(dane_obiektu["pozyskiwanie"])
+                    with zakladka2:
+                        cls_st.write(dane_obiektu["przepis"])
+                        
+                with kol2:
+                    # Automatyczne ładowanie pliku karty zdefiniowanego w bazie (.png)
+                    if "karta" in dane_obiektu and dane_obiektu["karta"]:
+                        try:
+                            obraz_karty = Image.open(dane_obiektu["karta"])
+                            cls_st.image(obraz_karty, caption=f"Karta botaniczna: {rozpoznany_gatunek}", use_container_width=True)
+                        except Exception:
+                            cls_st.warning(f"Nie znaleziono pliku '{dane_obiektu['karta']}' na GitHubie. Upewnij się, że wielkość liter w nazwie pliku jest identyczna!")
+        else:
+            cls_st.warning(f"🤖 Model AI zobaczył na zdjęciu: '{glowna_etykieta}', ale ten obiekt nie został jeszcze przypisany do żadnego opisu.")
