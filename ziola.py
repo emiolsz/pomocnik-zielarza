@@ -3,6 +3,7 @@
 BAZA_ZIOL = {
     "Rumianek pospolity": {
         "lacina": "Matricaria chamomilla",
+        "karta": "karta_Rumianek_Pospolity.png",
         "pozyskiwanie": (
             "**Czas zbioru:** Słoneczne dni od maja do sierpnia, na początku kwitnienia.\n\n"
             "**Zasady pozyskiwania:**\n"
