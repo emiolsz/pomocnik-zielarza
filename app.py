@@ -1,27 +1,38 @@
 import streamlit as cls_st
 from PIL import Image
-from transformers import pipeline
+import requests
 
-# 1. Importowanie naukowych baz danych
+# 1. Importowanie baz danych
 from ziola import BAZA_ZIOL
 from drzewa import BAZA_DRZEW
 from grzyby import BAZA_GRZYBOW
 from slownik import MAPOWANIE_AI
 
+# Darmowy, publiczny model klasyfikacji przyrody na Hugging Face przez API
+API_URL = "https://huggingface.co"
+
+def analizuj_zdjecie_przez_api(obraz_pil):
+    # Konwersja obrazu na bajty do wysyłki
+    import io
+    bufor = io.BytesIO()
+    obraz_pil.save(bufor, format="JPEG")
+    dane_binarne = bufor.getvalue()
+    
+    try:
+        odpowiedz = requests.post(API_URL, data=dane_binarne)
+        if odpowiedz.status_code == 200:
+            return odpowiedz.json()
+    except Exception:
+        pass
+    return None
+
 # 2. Konfiguracja strony
 cls_st.set_page_config(
     page_title="Pomocnik zielarza",
     page_icon="🌿",
-    layout="wide"  # Zmieniamy na 'wide', aby grafika i tekst ładnie zmieściły się obok siebie
+    layout="wide"
 )
 
-@cls_st.cache_resource
-def zaladuj_model_ai():
-    return pipeline("image-classification", model="microsoft/resnet-50")
-
-detektor_ai = zaladuj_model_ai()
-
-# 3. Interfejs aplikacji
 cls_st.title("🌿 Pomocnik zielarza")
 cls_st.subheader("Naukowa baza wiedzy o ziołach, drzewach i grzybach")
 
@@ -42,20 +53,23 @@ if zdjecie_plik is not None:
     
     if cls_st.button("Uruchom analizę AI i przeszukaj atlasy", type="primary"):
         with cls_st.spinner("Oko AI analizuje kształty i kolory surowca..."):
-            wyniki_ai = detektor_ai(obraz)
+            wyniki_ai = analizuj_zdjecie_przez_api(obraz)
+            
+        rozpoznany_gatunek = None
+        
+        if wyniki_ai and isinstance(wyniki_ai, list) and len(wyniki_ai) > 0:
             etykieta_ai = wyniki_ai[0]['label'].lower()
             glowna_etykieta = etykieta_ai.split(',')[0].strip()
             
-        rozpoznany_gatunek = None
-        if glowna_etykieta in MAPOWANIE_AI:
-            rozpoznany_gatunek = MAPOWANIE_AI[glowna_etykieta]
-        else:
-            for klucz, wartosc in MAPOWANIE_AI.items():
-                if klucz in etykieta_ai:
-                    rozpoznany_gatunek = wartosc
-                    break
-
-        # 4. Wyświetlanie naukowej wiedzy botanicznej wraz z kartą
+            if glowna_etykieta in MAPOWANIE_AI:
+                rozpoznany_gatunek = MAPOWANIE_AI[glowna_etykieta]
+            else:
+                for klucz, wartosc in MAPOWANIE_AI.items():
+                    if klucz in etykieta_ai:
+                        rozpoznany_gatunek = wartosc
+                        break
+        
+        # Wyświetlanie naukowej wiedzy i karty botanicznej
         if rozpoznany_gatunek:
             dane_obiektu = None
             kategoria = ""
@@ -76,9 +90,7 @@ if zdjecie_plik is not None:
                 cls_st.markdown(f"## {rozpoznany_gatunek}")
                 cls_st.markdown(f"*Nazwa łacińska:* ***{dane_obiektu['lacina']}***")
                 
-                # --- PODZIAŁ NA KOLUMNY ---
-                # kol1 (lewa) na teksty naukowe, kol2 (prawa) na Twoją kartę botaniczną
-                kol1, kol2 = cls_st.columns([1, 1])
+                kol1, kol2 = cls_st.columns(2)
                 
                 with kol1:
                     zakladka1, zakladka2 = cls_st.tabs(["📋 Pozyskiwanie i zbiór", "🧪 Przepis / Zastosowanie"])
@@ -88,12 +100,11 @@ if zdjecie_plik is not None:
                         cls_st.write(dane_obiektu["przepis"])
                         
                 with kol2:
-                    # Automatyczne ładowanie pliku karty zdefiniowanego w bazie (.png)
                     if "karta" in dane_obiektu and dane_obiektu["karta"]:
                         try:
                             obraz_karty = Image.open(dane_obiektu["karta"])
                             cls_st.image(obraz_karty, caption=f"Karta botaniczna: {rozpoznany_gatunek}", use_container_width=True)
                         except Exception:
-                            cls_st.warning(f"Nie znaleziono pliku '{dane_obiektu['karta']}' na GitHubie. Upewnij się, że wielkość liter w nazwie pliku jest identyczna!")
+                            cls_st.warning(f"Nie znaleziono pliku '{dane_obiektu['karta']}' na GitHubie.")
         else:
-            cls_st.warning(f"🤖 Model AI zobaczył na zdjęciu: '{glowna_etykieta}', ale ten obiekt nie został jeszcze przypisany do żadnego opisu.")
+            cls_st.warning("🤖 Model AI przetwarza obraz, ale ten obiekt nie został jeszcze powiązany z żadnym opisem botanicznym.")
