@@ -2,17 +2,16 @@ import streamlit as cls_st
 from PIL import Image
 import requests
 
-# 1. Importowanie baz danych
+# 1. Importowanie Twoich naukowych baz danych i słownika AI
 from ziola import BAZA_ZIOL
 from drzewa import BAZA_DRZEW
 from grzyby import BAZA_GRZYBOW
-from slownik import MAPOWANIE_AI
+from slownik import MAPOWANIE_AI  # Pobieranie słownika z wgranego pliku
 
-# Darmowy, publiczny model klasyfikacji przyrody na Hugging Face przez API
+# Adres darmowego modelu klasyfikacji przyrody w chmurze Hugging Face
 API_URL = "https://huggingface.co"
 
 def analizuj_zdjecie_przez_api(obraz_pil):
-    # Konwersja obrazu na bajty do wysyłki
     import io
     bufor = io.BytesIO()
     obraz_pil.save(bufor, format="JPEG")
@@ -26,13 +25,14 @@ def analizuj_zdjecie_przez_api(obraz_pil):
         pass
     return None
 
-# 2. Konfiguracja strony
+# 2. Konfiguracja strony internetowej
 cls_st.set_page_config(
     page_title="Pomocnik zielarza",
     page_icon="🌿",
-    layout="wide"
+    layout="wide"  # Szeroki układ ekranu na dwie kolumny
 )
 
+# Nagłówek aplikacji
 cls_st.title("🌿 Pomocnik zielarza")
 cls_st.subheader("Naukowa baza wiedzy o ziołach, drzewach i grzybach")
 
@@ -57,19 +57,26 @@ if zdjecie_plik is not None:
             
         rozpoznany_gatunek = None
         
+        # Przetwarzanie i dopasowywanie odpowiedzi z modelu AI
         if wyniki_ai and isinstance(wyniki_ai, list) and len(wyniki_ai) > 0:
-            etykieta_ai = wyniki_ai[0]['label'].lower()
+            # Pobieramy pierwszy, najbardziej prawdopodobny wynik
+            najlepszy_wynik = wyniki_ai[0]
+            etykieta_ai = najlepszy_wynik['label'].lower()
+            
+            # Czyszczenie tekstu (wyciągamy główne słowo przed przecinkiem)
             glowna_etykieta = etykieta_ai.split(',')[0].strip()
             
+            # Wyszukiwanie polskiej nazwy w zaimportowanym z słownika pliku
             if glowna_etykieta in MAPOWANIE_AI:
                 rozpoznany_gatunek = MAPOWANIE_AI[glowna_etykieta]
             else:
+                # Awaryjne przeszukiwanie tekstu w całych frazach
                 for klucz, wartosc in MAPOWANIE_AI.items():
                     if klucz in etykieta_ai:
                         rozpoznany_gatunek = wartosc
                         break
         
-        # Wyświetlanie naukowej wiedzy i karty botanicznej
+        # 3. Wyświetlanie naukowej wiedzy i karty botanicznej obok siebie
         if rozpoznany_gatunek:
             dane_obiektu = None
             kategoria = ""
@@ -90,6 +97,7 @@ if zdjecie_plik is not None:
                 cls_st.markdown(f"## {rozpoznany_gatunek}")
                 cls_st.markdown(f"*Nazwa łacińska:* ***{dane_obiektu['lacina']}***")
                 
+                # Tworzenie dwóch kolumn obok siebie
                 kol1, kol2 = cls_st.columns(2)
                 
                 with kol1:
@@ -100,6 +108,7 @@ if zdjecie_plik is not None:
                         cls_st.write(dane_obiektu["przepis"])
                         
                 with kol2:
+                    # Ładowanie karty botanicznej przypisanej do gatunku
                     if "karta" in dane_obiektu and dane_obiektu["karta"]:
                         try:
                             obraz_karty = Image.open(dane_obiektu["karta"])
