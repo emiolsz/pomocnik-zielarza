@@ -16,15 +16,21 @@ from slownik import MAPOWANIE_AI
 # KONFIGURACJA HUGGING FACE
 # =========================================================
 
-# Wklej tutaj swój token Hugging Face
-HF_TOKEN = st.secrets["HF_TOKEN"]
+import tomllib
 
-# Lepszy model do rozpoznawania obrazów
+# Odczyt tokenu z pliku secrets.toml na GitHubie
+with open("secrets.toml", "rb") as f:
+    config_secrets = tomllib.load(f)
+
+HF_TOKEN = config_secrets["HF_TOKEN"]
+
+# Adres URL do modelu AI
 API_URL = "https://hf.co"
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}"
 }
+
 
 # =========================================================
 # FUNKCJA ANALIZY AI
