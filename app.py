@@ -25,7 +25,7 @@ with open("secrets.toml", "rb") as f:
 HF_TOKEN = config_secrets["HF_TOKEN"]
 
 # Adres URL do modelu AI
-API_URL = "https://huggingface.co"
+API_URL = "https://api-inference.huggingface.co/models/microsoft/resnet-50"
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}"
