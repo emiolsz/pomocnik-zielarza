@@ -17,7 +17,7 @@ from slownik import MAPOWANIE_AI
 # =========================================================
 
 # Wklej tutaj swój token Hugging Face
-HF_TOKEN = "TU_WKLEJ_SWOJ_TOKEN"
+HF_TOKEN = "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"
 
 # Lepszy model do rozpoznawania obrazów
 API_URL = "https://api-inference.huggingface.co/models/google/vit-base-patch16-224"
