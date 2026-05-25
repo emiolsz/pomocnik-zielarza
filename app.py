@@ -20,7 +20,7 @@ from slownik import MAPOWANIE_AI
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
 # Lepszy model do rozpoznawania obrazów
-API_URL = "API_URL = "https://hf.co"
+API_URL = "https://hf.co"
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}"
