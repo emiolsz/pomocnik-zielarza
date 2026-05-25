@@ -4,7 +4,7 @@ import requests
 import io
 
 # =========================================================
-# IMPORT TWOICH BAZ DANYCH
+# IMPORT BAZ DANYCH
 # =========================================================
 
 from ziola import BAZA_ZIOL
@@ -16,21 +16,35 @@ from slownik import MAPOWANIE_AI
 # KONFIGURACJA HUGGING FACE
 # =========================================================
 
-import tomllib
+# Token pobierany ze Streamlit Secrets
+HF_TOKEN = st.secrets["HF_TOKEN"]
 
-# Odczyt tokenu z pliku secrets.toml na GitHubie
-with open("secrets.toml", "rb") as f:
-    config_secrets = tomllib.load(f)
-
-HF_TOKEN = config_secrets["HF_TOKEN"]
-
-# Adres URL do modelu AI
+# Endpoint modelu AI
 API_URL = "https://api-inference.huggingface.co/models/microsoft/resnet-50"
 
 headers = {
-    "Authorization": f"Bearer {HF_TOKEN}"
+    "Authorization": f"Bearer {HF_TOKEN}",
+    "User-Agent": "streamlit-app"
 }
 
+# =========================================================
+# TEST POŁĄCZENIA
+# =========================================================
+
+st.write("🔌 Test połączenia z Hugging Face...")
+
+try:
+
+    test = requests.get(
+        "https://api-inference.huggingface.co",
+        timeout=20
+    )
+
+    st.success(f"Połączenie OK: {test.status_code}")
+
+except Exception as e:
+
+    st.error(f"Błąd internetu/DNS: {e}")
 
 # =========================================================
 # FUNKCJA ANALIZY AI
@@ -54,7 +68,7 @@ def analizuj_zdjecie_przez_api(obraz_pil):
             API_URL,
             headers=headers,
             data=dane_binarne,
-            timeout=30
+            timeout=60
         )
 
         st.write("Status API:", odpowiedz.status_code)
@@ -64,13 +78,13 @@ def analizuj_zdjecie_przez_api(obraz_pil):
             wynik = odpowiedz.json()
 
             st.write("Odpowiedź AI:")
-            st.write(wynik)
+            st.json(wynik)
 
             return wynik
 
         else:
 
-            st.error("Błąd API")
+            st.error(f"Błąd API: {odpowiedz.status_code}")
             st.write(odpowiedz.text)
 
     except Exception as e:
@@ -78,7 +92,6 @@ def analizuj_zdjecie_przez_api(obraz_pil):
         st.error(f"Błąd połączenia: {e}")
 
     return None
-
 
 # =========================================================
 # KONFIGURACJA STRONY
@@ -98,7 +111,7 @@ st.title("🌿 Pomocnik zielarza")
 st.subheader("Rozpoznawanie ziół, drzew i grzybów przez AI")
 
 # =========================================================
-# WYBÓR SPOSOBU DODANIA ZDJĘCIA
+# WYBÓR ZDJĘCIA
 # =========================================================
 
 opcja = st.radio(
