@@ -1,119 +1,324 @@
-import streamlit as cls_st
+import streamlit as st
 from PIL import Image
 import requests
+import io
 
-# 1. Importowanie Twoich naukowych baz danych i słownika AI
+# =========================================================
+# IMPORT TWOICH BAZ DANYCH
+# =========================================================
+
 from ziola import BAZA_ZIOL
 from drzewa import BAZA_DRZEW
 from grzyby import BAZA_GRZYBOW
 from slownik import MAPOWANIE_AI
 
-# Adres darmowego modelu klasyfikacji przyrody w chmurze Hugging Face
-API_URL = "https://huggingface.co"
+# =========================================================
+# KONFIGURACJA HUGGING FACE
+# =========================================================
+
+# Wklej tutaj swój token Hugging Face
+HF_TOKEN = "TU_WKLEJ_SWOJ_TOKEN"
+
+# Lepszy model do rozpoznawania obrazów
+API_URL = "https://api-inference.huggingface.co/models/google/vit-base-patch16-224"
+
+headers = {
+    "Authorization": f"Bearer {HF_TOKEN}"
+}
+
+# =========================================================
+# FUNKCJA ANALIZY AI
+# =========================================================
 
 def analizuj_zdjecie_przez_api(obraz_pil):
-    import io
+
     bufor = io.BytesIO()
-    obraz_pil.save(bufor, format="JPEG")
+
+    # Konwersja do RGB
+    obraz_rgb = obraz_pil.convert("RGB")
+
+    # Zapis do bufora
+    obraz_rgb.save(bufor, format="JPEG")
+
     dane_binarne = bufor.getvalue()
-    
+
     try:
-        odpowiedz = requests.post(API_URL, data=dane_binarne)
+
+        odpowiedz = requests.post(
+            API_URL,
+            headers=headers,
+            data=dane_binarne,
+            timeout=30
+        )
+
+        st.write("Status API:", odpowiedz.status_code)
+
         if odpowiedz.status_code == 200:
-            return odpowiedz.json()
-    except Exception:
-        pass
+
+            wynik = odpowiedz.json()
+
+            st.write("Odpowiedź AI:")
+            st.write(wynik)
+
+            return wynik
+
+        else:
+
+            st.error("Błąd API")
+            st.write(odpowiedz.text)
+
+    except Exception as e:
+
+        st.error(f"Błąd połączenia: {e}")
+
     return None
 
-# 2. Konfiguracja strony internetowej
-cls_st.set_page_config(
+
+# =========================================================
+# KONFIGURACJA STRONY
+# =========================================================
+
+st.set_page_config(
     page_title="Pomocnik zielarza",
     page_icon="🌿",
-    layout="wide"  # Szeroki układ ekranu na dwie kolumny
+    layout="wide"
 )
 
-# Nagłówek aplikacji
-cls_st.title("🌿 Pomocnik zielarza")
-cls_st.subheader("Naukowa baza wiedzy o ziołach, drzewach i grzybach")
+# =========================================================
+# NAGŁÓWEK
+# =========================================================
 
-opcja = cls_st.radio(
+st.title("🌿 Pomocnik zielarza")
+st.subheader("Rozpoznawanie ziół, drzew i grzybów przez AI")
+
+# =========================================================
+# WYBÓR SPOSOBU DODANIA ZDJĘCIA
+# =========================================================
+
+opcja = st.radio(
     "Wybierz sposób dodania zdjęcia:",
-    ("Wgraj plik z urządzenia", "Zrób zdjęcie aparatem")
+    (
+        "Wgraj plik z urządzenia",
+        "Zrób zdjęcie aparatem"
+    )
 )
 
 zdjecie_plik = None
+
 if opcja == "Wgraj plik z urządzenia":
-    zdjecie_plik = cls_st.file_uploader("Wybierz zdjęcie (JPG, PNG)", type=["jpg", "jpeg", "png"])
+
+    zdjecie_plik = st.file_uploader(
+        "Wybierz zdjęcie",
+        type=["jpg", "jpeg", "png"]
+    )
+
 else:
-    zdjecie_plik = cls_st.camera_input("Skieruj aparat na obiekt")
+
+    zdjecie_plik = st.camera_input(
+        "Zrób zdjęcie"
+    )
+
+# =========================================================
+# ANALIZA
+# =========================================================
 
 if zdjecie_plik is not None:
+
     obraz = Image.open(zdjecie_plik)
-    cls_st.image(obraz, caption="Twoje zdjęcie", use_container_width=True)
-    
-    if cls_st.button("Uruchom analizę AI i przeszukaj atlasy", type="primary"):
-        with cls_st.spinner("Oko AI analizuje kształty i kolory surowca..."):
+
+    st.image(
+        obraz,
+        caption="Twoje zdjęcie",
+        use_container_width=True
+    )
+
+    if st.button(
+        "🔍 Uruchom analizę AI",
+        type="primary"
+    ):
+
+        with st.spinner("AI analizuje obraz..."):
+
             wyniki_ai = analizuj_zdjecie_przez_api(obraz)
-            
+
         rozpoznany_gatunek = None
-        
-        # --- TUTAJ JEST TA POPRAWKA ---
-        if wyniki_ai and isinstance(wyniki_ai, list) and len(wyniki_ai) > 0:
-            # Pobieramy pierwszy element z listy wyników
+
+        # =====================================================
+        # ODCZYT WYNIKÓW AI
+        # =====================================================
+
+        if (
+            wyniki_ai
+            and isinstance(wyniki_ai, list)
+            and len(wyniki_ai) > 0
+        ):
+
             najlepszy_wynik = wyniki_ai[0]
-            etykieta_ai = najlepszy_wynik['label'].lower()
-            
-            # Prawidłowe oczyszczenie tekstu i wyciągnięcie głównego słowa przed przecinkiem
-            glowna_etykieta = etykieta_ai.split(',')[0].strip()
-            
-            # Wyszukiwanie polskiej nazwy w zaimportowanym słowniku
-            if glowna_etykieta in MAPOWANIE_AI:
-                rozpoznany_gatunek = MAPOWANIE_AI[glowna_etykieta]
-            else:
-                # Awaryjne przeszukiwanie tekstu w całych frazach
-                for klucz, wartosc in MAPOWANIE_AI.items():
-                    if klucz in etykieta_ai:
-                        rozpoznany_gatunek = wartosc
-                        break
-        
-        # 3. Wyświetlanie naukowej wiedzy i karty botanicznej obok siebie
+
+            if "label" in najlepszy_wynik:
+
+                etykieta_ai = najlepszy_wynik["label"].lower()
+
+                st.success(f"AI rozpoznało: {etykieta_ai}")
+
+                # Usunięcie przecinków
+                glowna_etykieta = (
+                    etykieta_ai
+                    .split(",")[0]
+                    .strip()
+                )
+
+                # =================================================
+                # DOPASOWANIE DO SŁOWNIKA
+                # =================================================
+
+                if glowna_etykieta in MAPOWANIE_AI:
+
+                    rozpoznany_gatunek = MAPOWANIE_AI[
+                        glowna_etykieta
+                    ]
+
+                else:
+
+                    # awaryjne wyszukiwanie
+                    for klucz, wartosc in MAPOWANIE_AI.items():
+
+                        if klucz in etykieta_ai:
+
+                            rozpoznany_gatunek = wartosc
+                            break
+
+        # =====================================================
+        # WYSZUKIWANIE W BAZACH
+        # =====================================================
+
         if rozpoznany_gatunek:
+
             dane_obiektu = None
             kategoria = ""
-            
+
+            # =============================================
+            # ZIOŁA
+            # =============================================
+
             if rozpoznany_gatunek in BAZA_ZIOL:
-                dane_obiektu = BAZA_ZIOL[rozpoznany_gatunek]
-                kategoria = "🌿 Kategoria: Zioła lecznicze"
+
+                dane_obiektu = BAZA_ZIOL[
+                    rozpoznany_gatunek
+                ]
+
+                kategoria = "🌿 Zioła"
+
+            # =============================================
+            # DRZEWA
+            # =============================================
+
             elif rozpoznany_gatunek in BAZA_DRZEW:
-                dane_obiektu = BAZA_DRZEW[rozpoznany_gatunek]
-                kategoria = "🌳 Kategoria: Drzewa i kora"
+
+                dane_obiektu = BAZA_DRZEW[
+                    rozpoznany_gatunek
+                ]
+
+                kategoria = "🌳 Drzewa"
+
+            # =============================================
+            # GRZYBY
+            # =============================================
+
             elif rozpoznany_gatunek in BAZA_GRZYBOW:
-                dane_obiektu = BAZA_GRZYBOW[rozpoznany_gatunek]
-                kategoria = "🍄 Kategoria: Grzyby"
+
+                dane_obiektu = BAZA_GRZYBOW[
+                    rozpoznany_gatunek
+                ]
+
+                kategoria = "🍄 Grzyby"
+
+            # =============================================
+            # WYŚWIETLENIE DANYCH
+            # =============================================
 
             if dane_obiektu:
-                cls_st.success("🎯 Oko AI zidentyfikowało obiekt!")
-                cls_st.info(kategoria)
-                cls_st.markdown(f"## {rozpoznany_gatunek}")
-                cls_st.markdown(f"*Nazwa łacińska:* ***{dane_obiektu['lacina']}***")
-                
-                # Tworzenie dwóch kolumn obok siebie
-                kol1, kol2 = cls_st.columns(2)
-                
+
+                st.success("🎯 Obiekt znaleziony w atlasie!")
+
+                st.info(kategoria)
+
+                st.markdown(
+                    f"## {rozpoznany_gatunek}"
+                )
+
+                st.markdown(
+                    f"### Łacina: {dane_obiektu['lacina']}"
+                )
+
+                kol1, kol2 = st.columns(2)
+
+                # =========================================
+                # LEWA KOLUMNA
+                # =========================================
+
                 with kol1:
-                    zakladka1, zakladka2 = cls_st.tabs(["📋 Pozyskiwanie i zbiór", "🧪 Przepis / Zastosowanie"])
-                    with zakladka1:
-                        cls_st.write(dane_obiektu["pozyskiwanie"])
-                    with zakladka2:
-                        cls_st.write(dane_obiektu["przepis"])
-                        
+
+                    tab1, tab2 = st.tabs(
+                        [
+                            "📋 Pozyskiwanie",
+                            "🧪 Zastosowanie"
+                        ]
+                    )
+
+                    with tab1:
+
+                        st.write(
+                            dane_obiektu["pozyskiwanie"]
+                        )
+
+                    with tab2:
+
+                        st.write(
+                            dane_obiektu["przepis"]
+                        )
+
+                # =========================================
+                # PRAWA KOLUMNA
+                # =========================================
+
                 with kol2:
-                    # Ładowanie karty botanicznej przypisanej do gatunku
-                    if "karta" in dane_obiektu and dane_obiektu["karta"]:
+
+                    if (
+                        "karta" in dane_obiektu
+                        and dane_obiektu["karta"]
+                    ):
+
                         try:
-                            obraz_karty = Image.open(dane_obiektu["karta"])
-                            cls_st.image(obraz_karty, caption=f"Karta botaniczna: {rozpoznany_gatunek}", use_container_width=True)
-                        except Exception:
-                            cls_st.warning(f"Nie znaleziono pliku '{dane_obiektu['karta']}' na GitHubie.")
+
+                            obraz_karty = Image.open(
+                                dane_obiektu["karta"]
+                            )
+
+                            st.image(
+                                obraz_karty,
+                                caption=f"Karta botaniczna: {rozpoznany_gatunek}",
+                                use_container_width=True
+                            )
+
+                        except Exception as e:
+
+                            st.warning(
+                                f"Nie znaleziono pliku karty: {e}"
+                            )
+
+            else:
+
+                st.warning(
+                    "AI rozpoznało obiekt, ale nie ma go jeszcze w bazie atlasu."
+                )
+
         else:
-            cls_st.warning("🤖 Model AI przetwarza obraz, ale ten obiekt nie został jeszcze powiązany z żadnym opisem botanicznym.")
+
+            st.error(
+                "AI nie potrafiło dopasować obiektu do słownika."
+            )
+
+            st.info(
+                "Dodaj więcej nazw do MAPOWANIE_AI w pliku slownik.py"
+            )
